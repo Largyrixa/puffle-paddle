@@ -11,7 +11,8 @@ find_package(OpenCV REQUIRED)
 find_package(X11 REQUIRED)
 
 # Cria o executável
-add_executable(main prototype/main.cpp)
+add_executable(main src/main.cpp)
+add_compile_options(-O2)
 
 # Adiciona os diretórios de inclusão do OpenCV
 include_directories(main PRIVATE ${OpenCV_INCLUDE_DIRS} ${X11_INCLUDE_DIR})
