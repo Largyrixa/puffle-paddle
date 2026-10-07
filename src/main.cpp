@@ -17,6 +17,8 @@
 #include <chrono>
 #include <thread>
 
+#define MASK_THRESH 40 // Experimentalmente o melhor valor
+
 using namespace cv;
 using namespace std;
 
@@ -83,7 +85,7 @@ int main() {
         Mat diff_image, mask;
 
         absdiff(current_frame_gray, background, diff_image);
-        threshold(diff_image, mask, 30, 255, THRESH_BINARY);
+        threshold(diff_image, mask, MASK_THRESH, 255, THRESH_BINARY);
 
         vector<vector<Point>> contours;
         findContours(mask, contours, RETR_EXTERNAL, CHAIN_APPROX_SIMPLE);
@@ -136,7 +138,7 @@ int main() {
         // cout << "Closest: " << "(" << closest_puffle->pos.x << ", " << closest_puffle->pos.y << ")" << endl;
         // imshow("bosta", current_frame_gray);
 
-        resize(current_frame_gray, current_frame_small, Size{ (int)width/8, (int)height/8 });
+        resize(current_frame_gray, current_frame_small, Size{ (int)width/4, (int)height/4 });
         imshow("Captura de Tela", current_frame_small);
 
         int pressed_key = cv::waitKey(1);
