@@ -17,7 +17,7 @@
 #include <chrono>
 #include <thread>
 
-#define MASK_THRESH 40 // Experimentalmente o melhor valor
+#define MASK_THRESH 40          // Experimentalmente o melhor valor
 
 using namespace cv;
 using namespace std;
@@ -108,7 +108,6 @@ int main() {
         // Coordenada y é fixa, só se move a coordenada x
         if (move_cursor_enabled) {
             MouseCursorGoto(cap.display, cap.root, roi_x+closest_obj.x, roi_y+height);
-
         }
 
         resize(current_frame_gray, current_frame_small, Size{ (int)width/4, (int)height/4 });
