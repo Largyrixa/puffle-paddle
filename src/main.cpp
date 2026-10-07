@@ -64,8 +64,6 @@ int main() {
 
     // Setup do x11 para capturar video
     ScreenCapture cap{roi_x, roi_y, width, height};
-    // cv::VideoWriter writer("saida.avi", cv::VideoWriter::fourcc('M','J','P','G'),
-    //                            fps, cv::Size(width, height));
 
     std::cout << "Gravando... Pressione Ctrl+C no terminal ou 'q' na janela para parar." << std::endl;
     auto frame_duration = std::chrono::milliseconds{1000 / fps};
@@ -80,8 +78,6 @@ int main() {
         Mat current_frame_small;
 
         closest_obj.y = 0;
-        // vector<Puffle> puffles;
-
         Mat diff_image, mask;
 
         absdiff(current_frame_gray, background, diff_image);
@@ -102,30 +98,11 @@ int main() {
                     closest_obj.y = puffle_y;
                 }
 
-                // 1. Desenha o contorno exato do objeto detectado (em Verde)
-                // drawContours(current_frame_gray, contours, (int)i, Scalar(0, 255, 0), 2);
-
-                // 2. Extrai e desenha a Bounding Box (Caixa de Colisão) (em Azul)
+                // Extrai e desenha a Bounding Box
                 Rect bounding_box = boundingRect(contours[i]);
                 rectangle(current_frame_gray, bounding_box, Scalar(255, 0, 0), 4);
-
-
-                // putText(debug_frame, to_string(area), Point(center_x, center_y), FONT_HERSHEY_SIMPLEX, 1.0, Scalar(0, 0, 255));
-                // 3. Desenha um círculo preenchido no Centroide exato (em Vermelho)
-                // circle(current_frame_gray, Point(puffle_x, puffle_y), 5, Scalar(0, 0, 255), -1);
-
-                // writer.write(current_frame_gray);
             }
         }
-
-        // Após coletar as imagens, pegar o mais próximo da raquete:
-        // Puffle *closest_puffle = &puffles[0];
-
-        // for (int i = 1; i < puffles.size(); i++) {
-        //     if (puffles[i].pos.y > closest_puffle->pos.y) {
-        //         closest_puffle = &puffles[i];
-        //     }
-        // }
 
         // Manda o mouse para o objeto mais próximo
         // Coordenada y é fixa, só se move a coordenada x
@@ -133,10 +110,6 @@ int main() {
             MouseCursorGoto(cap.display, cap.root, roi_x+closest_obj.x, roi_y+height);
 
         }
-
-        // cout << "Num Puffles: " << puffles.size() << endl;
-        // cout << "Closest: " << "(" << closest_puffle->pos.x << ", " << closest_puffle->pos.y << ")" << endl;
-        // imshow("bosta", current_frame_gray);
 
         resize(current_frame_gray, current_frame_small, Size{ (int)width/4, (int)height/4 });
         imshow("Captura de Tela", current_frame_small);
@@ -181,15 +154,7 @@ int main() {
 
     // Limpeza dos recursos
     destroyAllWindows();
-    // writer.release();
-
-    // XShmDetach(cap_attr.display, &cap_attr.shminfo);
-    // XDestroyImage(cap_attr.image);
-    // shmdt(cap_attr.shminfo.shmaddr);
-    // shmctl(cap_attr.shminfo.shmid, IPC_RMID, 0);
-    // XCloseDisplay(cap_attr.display);
-
-    // cout << "Gravação finalizada." << endl;
+    // ~cap();
     return 0;
 }
 
