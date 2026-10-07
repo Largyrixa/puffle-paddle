@@ -1,3 +1,5 @@
+#include <future>
+#include <opencv2/core/mat.hpp>
 #include <opencv2/core/types.hpp>
 #include <opencv2/flann/defines.h>
 #include <opencv2/highgui.hpp>
@@ -5,6 +7,7 @@
 #include <opencv2/opencv.hpp>
 #include <iostream>
 #include <opencv2/videoio.hpp>
+#include <string>
 #include <vector>
 
 #include <X11/Xlib.h>
@@ -28,16 +31,21 @@ public:
     Puffle(Point _pos, Scalar _color): pos{_pos}, color{_color} {}
 };
 
-struct ScreenCaptureAttr {
+class ScreenCapture {
+private:
     Display *display;
     Window root;
     XWindowAttributes window_attributes;
     XShmSegmentInfo shminfo;
     XImage *image;
-};
+    int roi_x, roi_y;
+    unsigned int width, height;
 
-ScreenCaptureAttr SetUpScreenCapture(unsigned int width, unsigned int height);
-Mat GetFrame(ScreenCaptureAttr *at, int roi_x, int roi_y, unsigned int width, unsigned int height);
+public:
+  ScreenCapture(int _roi_x, int _roi_y, unsigned int _w, unsigned int _h);
+  cv::Mat get_frame();
+  ~ScreenCapture();
+};
 
 int main() {
     // Regiao de interesse
@@ -51,18 +59,19 @@ int main() {
     Mat background = imread("images/fundo.png", IMREAD_GRAYSCALE);
     if (background.empty()) return -1;
 
-    ScreenCaptureAttr cap_attr = SetUpScreenCapture(width, height);
+    ScreenCapture cap{roi_x, roi_y, width, height};
     // cv::VideoWriter writer("saida.avi", cv::VideoWriter::fourcc('M','J','P','G'),
     //                            fps, cv::Size(width, height));
 
     std::cout << "Gravando... Pressione Ctrl+C no terminal ou 'q' na janela para parar." << std::endl;
-
-    auto frame_duration = std::chrono::milliseconds(1000 / fps);
+    std::cout << "FPS: " << std::flush;
+    auto frame_duration = std::chrono::milliseconds{1000 / fps};
     bool running = true;
 
     while (running) {
         auto start_time = std::chrono::steady_clock::now();
-        Mat current_frame_gray = GetFrame(&cap_attr, roi_x, roi_y, width, height);
+        Mat current_frame_gray = cap.get_frame();
+        Mat current_frame_small;
 
         vector<Puffle> puffles;
 
@@ -111,6 +120,9 @@ int main() {
         // cout << "Closest: " << "(" << closest_puffle->pos.x << ", " << closest_puffle->pos.y << ")" << endl;
         // imshow("bosta", current_frame_gray);
 
+        resize(current_frame_gray, current_frame_small, Size{ (int)width/8, (int)height/8 });
+        imshow("Captura de Tela", current_frame_small);
+
         if (waitKey(16) == 'q') {
             running = false;
         }
@@ -118,68 +130,76 @@ int main() {
         // Controlar a taxa de quadros (FPS)
         auto end_time = std::chrono::steady_clock::now();
         auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
+        cout << elapsed.count() << "\b\b" << std::flush;
         if (elapsed < frame_duration) {
             std::this_thread::sleep_for(frame_duration - elapsed);
         }
     }
+    cout << endl;
 
     // Limpeza dos recursos
     destroyAllWindows();
     // writer.release();
 
-    XShmDetach(cap_attr.display, &cap_attr.shminfo);
-    XDestroyImage(cap_attr.image);
-    shmdt(cap_attr.shminfo.shmaddr);
-    shmctl(cap_attr.shminfo.shmid, IPC_RMID, 0);
-    XCloseDisplay(cap_attr.display);
+    // XShmDetach(cap_attr.display, &cap_attr.shminfo);
+    // XDestroyImage(cap_attr.image);
+    // shmdt(cap_attr.shminfo.shmaddr);
+    // shmctl(cap_attr.shminfo.shmid, IPC_RMID, 0);
+    // XCloseDisplay(cap_attr.display);
 
-    cout << "Gravação finalizada." << endl;
+    // cout << "Gravação finalizada." << endl;
     return 0;
 }
 
-ScreenCaptureAttr SetUpScreenCapture(unsigned int width, unsigned int height)
+ScreenCapture::ScreenCapture(int _roi_x, int _roi_y, unsigned int _w, unsigned int _h):
+roi_x{_roi_x}, roi_y{_roi_y}, width{_w}, height{_h}
 {
-    ScreenCaptureAttr at;
-    // 2. Conectar ao servidor X11
-    at.display = XOpenDisplay(nullptr);
-    if (!at.display) {
+    display = XOpenDisplay(nullptr);
+    if (!display) {
         std::cerr << "Erro: Não foi possível abrir o display X11." << std::endl;
         exit(1);
     }
 
-    at.root = DefaultRootWindow(at.display);
-    XGetWindowAttributes(at.display, at.root, &at.window_attributes);
+    root = DefaultRootWindow(display);
+    XGetWindowAttributes(display, root, &window_attributes);
 
-    // 3. Configurar a Memória Compartilhada (XShm)
-    at.image = XShmCreateImage(at.display, at.window_attributes.visual,
-                                    at.window_attributes.depth, ZPixmap, nullptr,
-                                    &at.shminfo, width, height);
+    // Configurar a Memória Compartilhada (XShm)
+    image = XShmCreateImage(display, window_attributes.visual,
+                                    window_attributes.depth, ZPixmap, nullptr,
+                                    &shminfo, width, height);
 
     // Alocar a memória compartilhada
-    at.shminfo.shmid = shmget(IPC_PRIVATE, at.image->bytes_per_line * at.image->height, IPC_CREAT | 0777);
-    at.shminfo.shmaddr = at.image->data = (char*)shmat(at.shminfo.shmid, 0, 0);
-    at.shminfo.readOnly = False;
+    shminfo.shmid = shmget(IPC_PRIVATE, image->bytes_per_line * image->height, IPC_CREAT | 0777);
+    shminfo.shmaddr = image->data = (char*)shmat(shminfo.shmid, 0, 0);
+    shminfo.readOnly = False;
 
     // Anexar a memória ao X Server
-    if (!XShmAttach(at.display, &at.shminfo)) {
+    if (!XShmAttach(display, &shminfo)) {
         std::cerr << "Erro: Falha ao anexar a memória compartilhada do X11." << std::endl;
         exit(1);
     }
-
-    return at;
 }
 
-
-Mat GetFrame(ScreenCaptureAttr *at, int roi_x, int roi_y, unsigned int width, unsigned int height)
+cv::Mat ScreenCapture::get_frame()
 {
-    XShmGetImage(at->display, at->root, at->image, roi_x, roi_y, AllPlanes);
+    XShmGetImage(display, root, image, roi_x, roi_y, AllPlanes);
 
     // O X11 retorna os pixels no formato BGRA (4 canais). O OpenCV precisa associar isso a um cv::Mat.
-    cv::Mat frame_bgra(height, width, CV_8UC4, at->image->data);
+    cv::Mat frame_bgra(height, width, CV_8UC4, image->data);
     cv::Mat frame_gray;
 
     // Converter BGRA para BGR (formato padrão do VideoWriter)
     cv::cvtColor(frame_bgra, frame_gray, cv::COLOR_RGBA2GRAY);
 
     return frame_gray;
+}
+
+ScreenCapture::~ScreenCapture()
+{
+    XShmDetach(display, &shminfo);
+    XDestroyImage(image);
+    shmdt(shminfo.shmaddr);
+    shmctl(shminfo.shmid, IPC_RMID, 0);
+    XCloseDisplay(display);
+    std::cout << "Gravação finalizada!" << endl;
 }
