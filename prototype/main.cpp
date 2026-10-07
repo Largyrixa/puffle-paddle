@@ -64,8 +64,8 @@ int main() {
     //                            fps, cv::Size(width, height));
 
     std::cout << "Gravando... Pressione Ctrl+C no terminal ou 'q' na janela para parar." << std::endl;
-    std::cout << "FPS: " << std::flush;
     auto frame_duration = std::chrono::milliseconds{1000 / fps};
+    int frame_c = 0;
     bool running = true;
 
     while (running) {
@@ -130,7 +130,14 @@ int main() {
         // Controlar a taxa de quadros (FPS)
         auto end_time = std::chrono::steady_clock::now();
         auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
-        cout << elapsed.count() << "\b\b" << std::flush;
+        if (++frame_c >= 60) {
+            long current_fps = 1000 / elapsed.count();
+            if (current_fps > 60) {
+                current_fps = 60;
+            }
+            cout << "FPS: " << current_fps << "\r" << std::flush;
+            frame_c = 0;
+        }
         if (elapsed < frame_duration) {
             std::this_thread::sleep_for(frame_duration - elapsed);
         }
