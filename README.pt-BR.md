@@ -2,7 +2,7 @@
 
 [English](README.md) | **Português (BR)**
 
-Autoplayer para o **Puffle Paddle**, o minigame de festa do Club Penguin em que você precisa manter os puffles no ar com uma raquete.
+Autoplayer para o **Puffle Paddle**, um minigame de um evento do Club Penguin.
 
 O programa captura uma região fixa da tela, roda visão computacional nela (subtração de fundo → threshold → detecção de contornos), encontra o puffle mais baixo na tela e move o mouse para essa posição em x, para que a raquete fique embaixo dele.
 
