@@ -1,4 +1,4 @@
-#include <future>
+#include <X11/X.h>
 #include <opencv2/core/mat.hpp>
 #include <opencv2/core/types.hpp>
 #include <opencv2/flann/defines.h>
@@ -7,7 +7,6 @@
 #include <opencv2/opencv.hpp>
 #include <iostream>
 #include <opencv2/videoio.hpp>
-#include <string>
 #include <vector>
 
 #include <X11/Xlib.h>
@@ -32,7 +31,7 @@ public:
 };
 
 class ScreenCapture {
-private:
+public:
     Display *display;
     Window root;
     XWindowAttributes window_attributes;
@@ -41,11 +40,13 @@ private:
     int roi_x, roi_y;
     unsigned int width, height;
 
-public:
-  ScreenCapture(int _roi_x, int _roi_y, unsigned int _w, unsigned int _h);
-  cv::Mat get_frame();
-  ~ScreenCapture();
+    ScreenCapture(int _roi_x, int _roi_y, unsigned int _w, unsigned int _h);
+    cv::Mat get_frame();
+    ~ScreenCapture();
 };
+
+void MouseCursorGoto(Display *, Window, int, int);
+int  GetKeyPressed(Display *);
 
 int main() {
     // Regiao de interesse
@@ -59,6 +60,7 @@ int main() {
     Mat background = imread("images/fundo.png", IMREAD_GRAYSCALE);
     if (background.empty()) return -1;
 
+    // Setup do x11 para capturar video
     ScreenCapture cap{roi_x, roi_y, width, height};
     // cv::VideoWriter writer("saida.avi", cv::VideoWriter::fourcc('M','J','P','G'),
     //                            fps, cv::Size(width, height));
@@ -67,13 +69,16 @@ int main() {
     auto frame_duration = std::chrono::milliseconds{1000 / fps};
     int frame_c = 0;
     bool running = true;
+    bool move_cursor_enabled = false;
 
+    Point closest_obj{0, 0};
     while (running) {
         auto start_time = std::chrono::steady_clock::now();
         Mat current_frame_gray = cap.get_frame();
         Mat current_frame_small;
 
-        vector<Puffle> puffles;
+        closest_obj.y = 0;
+        // vector<Puffle> puffles;
 
         Mat diff_image, mask;
 
@@ -90,32 +95,43 @@ int main() {
                 int puffle_x = m.m10 / m.m00;
                 int puffle_y = m.m01 / m.m00;
 
-                puffles.push_back(Puffle{puffle_x, puffle_y});
+                if (puffle_y > closest_obj.y) {
+                    closest_obj.x = puffle_x;
+                    closest_obj.y = puffle_y;
+                }
 
                 // 1. Desenha o contorno exato do objeto detectado (em Verde)
-                drawContours(current_frame_gray, contours, (int)i, Scalar(0, 255, 0), 2);
+                // drawContours(current_frame_gray, contours, (int)i, Scalar(0, 255, 0), 2);
 
                 // 2. Extrai e desenha a Bounding Box (Caixa de Colisão) (em Azul)
                 Rect bounding_box = boundingRect(contours[i]);
-                rectangle(current_frame_gray, bounding_box, Scalar(255, 0, 0), 2);
+                rectangle(current_frame_gray, bounding_box, Scalar(255, 0, 0), 4);
 
 
                 // putText(debug_frame, to_string(area), Point(center_x, center_y), FONT_HERSHEY_SIMPLEX, 1.0, Scalar(0, 0, 255));
                 // 3. Desenha um círculo preenchido no Centroide exato (em Vermelho)
-                circle(current_frame_gray, Point(puffle_x, puffle_y), 5, Scalar(0, 0, 255), -1);
+                // circle(current_frame_gray, Point(puffle_x, puffle_y), 5, Scalar(0, 0, 255), -1);
 
                 // writer.write(current_frame_gray);
             }
         }
 
         // Após coletar as imagens, pegar o mais próximo da raquete:
-        Puffle *closest_puffle = &puffles[0];
+        // Puffle *closest_puffle = &puffles[0];
 
-        for (int i = 1; i < puffles.size(); i++) {
-            if (puffles[i].pos.y > closest_puffle->pos.y) {
-                closest_puffle = &puffles[i];
-            }
+        // for (int i = 1; i < puffles.size(); i++) {
+        //     if (puffles[i].pos.y > closest_puffle->pos.y) {
+        //         closest_puffle = &puffles[i];
+        //     }
+        // }
+
+        // Manda o mouse para o objeto mais próximo
+        // Coordenada y é fixa, só se move a coordenada x
+        if (move_cursor_enabled) {
+            MouseCursorGoto(cap.display, cap.root, roi_x+closest_obj.x, roi_y+height);
+
         }
+
         // cout << "Num Puffles: " << puffles.size() << endl;
         // cout << "Closest: " << "(" << closest_puffle->pos.x << ", " << closest_puffle->pos.y << ")" << endl;
         // imshow("bosta", current_frame_gray);
@@ -123,8 +139,25 @@ int main() {
         resize(current_frame_gray, current_frame_small, Size{ (int)width/8, (int)height/8 });
         imshow("Captura de Tela", current_frame_small);
 
-        if (waitKey(16) == 'q') {
+        int pressed_key = cv::waitKey(1);
+
+        switch (pressed_key) {
+        case 'q':
+        case 'Q':
             running = false;
+            break;
+
+        case 'y':
+        case 'Y':
+            move_cursor_enabled = true;
+            break;
+
+        case 'n':
+        case 'N':
+            move_cursor_enabled = false;
+            break;
+
+        default: break;
         }
 
         // Controlar a taxa de quadros (FPS)
@@ -209,4 +242,15 @@ ScreenCapture::~ScreenCapture()
     shmctl(shminfo.shmid, IPC_RMID, 0);
     XCloseDisplay(display);
     std::cout << "Gravação finalizada!" << endl;
+}
+
+void MouseCursorGoto(Display *dsp, Window w, int x, int y)
+{
+    XWarpPointer(
+        dsp,              // Display handle
+        None,             // Source window (None = use root window)
+        w,                // Destination window (root window)
+        0, 0, 0, 0,       // Source coordinates and size (ignored for None)
+        x, y              // Destination coordinates
+    );
 }
