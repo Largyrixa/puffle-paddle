@@ -66,7 +66,7 @@ int main() {
     while (running) {
         auto start_time = std::chrono::steady_clock::now();
         cv::Mat current_frame_gray = cap.get_frame();
-        cv::Mat current_frame_small;
+        cv::Mat debug_frame, debug_frame_small;
 
         closest_obj.y = 0;
         cv::Mat diff_image, mask;
@@ -76,6 +76,8 @@ int main() {
 
         std::vector<std::vector<cv::Point>> contours;
         cv::findContours(mask, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
+
+        cv::cvtColor(current_frame_gray, debug_frame, cv::COLOR_GRAY2BGR);
 
         for (size_t i = 0; i < contours.size(); i++) {
             double area = cv::contourArea(contours[i]);
@@ -91,7 +93,7 @@ int main() {
 
                 // Extrai e desenha a Bounding Box
                 cv::Rect bounding_box = cv::boundingRect(contours[i]);
-                cv::rectangle(current_frame_gray, bounding_box, cv::Scalar(255, 0, 0), 4);
+                cv::rectangle(debug_frame, bounding_box, cv::Scalar(255, 0, 0), 4);
             }
         }
 
@@ -101,8 +103,8 @@ int main() {
             MouseCursorGoto(cap.display, cap.root, roi_x+closest_obj.x, roi_y+height);
         }
 
-        cv::resize(current_frame_gray, current_frame_small, cv::Size{ (int)width/4, (int)height/4 });
-        cv::imshow("Captura de Tela", current_frame_small);
+        cv::resize(debug_frame, debug_frame_small, cv::Size{ (int)width/4, (int)height/4 });
+        cv::imshow("Captura de Tela", debug_frame_small);
 
         int pressed_key = cv::waitKey(1);
 
@@ -129,7 +131,10 @@ int main() {
         auto end_time = std::chrono::steady_clock::now();
         auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
         if (++frame_c >= 60) {
-            long current_fps = 1000 / elapsed.count();
+            long current_fps = 60;
+            if (elapsed.count() != 0) {
+                current_fps = 1000 / elapsed.count();
+            }
             if (current_fps > 60) {
                 current_fps = 60;
             }
@@ -144,7 +149,6 @@ int main() {
 
     // Limpeza dos recursos
     cv::destroyAllWindows();
-    // ~cap();
     return 0;
 }
 
@@ -210,4 +214,5 @@ void MouseCursorGoto(Display *dsp, Window w, int x, int y)
         0, 0, 0, 0,       // Source coordinates and size (ignored for None)
         x, y              // Destination coordinates
     );
+    XFlush(dsp);
 }
