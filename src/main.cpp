@@ -20,9 +20,6 @@
 #define MASK_THRESH 40          // Experimentalmente o melhor valor
 #define OBJECT_MIN_AREA 10000.0 // Experimentalmente um valor bom
 
-using namespace cv;
-using namespace std;
-
 class ScreenCapture {
 public:
     Display *display;
@@ -50,7 +47,7 @@ int main() {
     int fps = 60;
 
     // Obs: essa imagem tem dimensões exatas de 1503x750
-    Mat background = imread("images/background.png", IMREAD_GRAYSCALE);
+    cv::Mat background = cv::imread("images/background.png", cv::IMREAD_GRAYSCALE);
     if (background.empty()) return -1;
 
     // Setup do x11 para capturar video
@@ -59,28 +56,31 @@ int main() {
     std::cout << "Gravando... Pressione Ctrl+C no terminal ou 'q' na janela para parar." << std::endl;
     auto frame_duration = std::chrono::milliseconds{1000 / fps};
     int frame_c = 0;
+
     bool running = true;
+
     bool move_cursor_enabled = false;
 
-    Point closest_obj{0, 0};
+    cv::Point closest_obj{0, 0};
+
     while (running) {
         auto start_time = std::chrono::steady_clock::now();
-        Mat current_frame_gray = cap.get_frame();
-        Mat current_frame_small;
+        cv::Mat current_frame_gray = cap.get_frame();
+        cv::Mat current_frame_small;
 
         closest_obj.y = 0;
-        Mat diff_image, mask;
+        cv::Mat diff_image, mask;
 
-        absdiff(current_frame_gray, background, diff_image);
-        threshold(diff_image, mask, MASK_THRESH, 255, THRESH_BINARY);
+        cv::absdiff(current_frame_gray, background, diff_image);
+        cv::threshold(diff_image, mask, MASK_THRESH, 255, cv::THRESH_BINARY);
 
-        vector<vector<Point>> contours;
-        findContours(mask, contours, RETR_EXTERNAL, CHAIN_APPROX_SIMPLE);
+        std::vector<std::vector<cv::Point>> contours;
+        cv::findContours(mask, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
 
         for (size_t i = 0; i < contours.size(); i++) {
-            double area = contourArea(contours[i]);
+            double area = cv::contourArea(contours[i]);
             if (area > OBJECT_MIN_AREA) {
-                Moments m = moments(contours[i]);
+                cv::Moments m = cv::moments(contours[i]);
                 int puffle_x = m.m10 / m.m00;
                 int puffle_y = m.m01 / m.m00;
 
@@ -90,8 +90,8 @@ int main() {
                 }
 
                 // Extrai e desenha a Bounding Box
-                Rect bounding_box = boundingRect(contours[i]);
-                rectangle(current_frame_gray, bounding_box, Scalar(255, 0, 0), 4);
+                cv::Rect bounding_box = cv::boundingRect(contours[i]);
+                cv::rectangle(current_frame_gray, bounding_box, cv::Scalar(255, 0, 0), 4);
             }
         }
 
@@ -101,8 +101,8 @@ int main() {
             MouseCursorGoto(cap.display, cap.root, roi_x+closest_obj.x, roi_y+height);
         }
 
-        resize(current_frame_gray, current_frame_small, Size{ (int)width/4, (int)height/4 });
-        imshow("Captura de Tela", current_frame_small);
+        cv::resize(current_frame_gray, current_frame_small, cv::Size{ (int)width/4, (int)height/4 });
+        cv::imshow("Captura de Tela", current_frame_small);
 
         int pressed_key = cv::waitKey(1);
 
@@ -133,17 +133,17 @@ int main() {
             if (current_fps > 60) {
                 current_fps = 60;
             }
-            cout << "FPS: " << current_fps << "\r" << std::flush;
+            std::cout << "FPS: " << current_fps << "\r" << std::flush;
             frame_c = 0;
         }
         if (elapsed < frame_duration) {
             std::this_thread::sleep_for(frame_duration - elapsed);
         }
     }
-    cout << endl;
+    std::cout << std::endl;
 
     // Limpeza dos recursos
-    destroyAllWindows();
+    cv::destroyAllWindows();
     // ~cap();
     return 0;
 }
@@ -198,7 +198,7 @@ ScreenCapture::~ScreenCapture()
     shmdt(shminfo.shmaddr);
     shmctl(shminfo.shmid, IPC_RMID, 0);
     XCloseDisplay(display);
-    std::cout << "Gravação finalizada!" << endl;
+    std::cout << "Gravação finalizada!" << std::endl;
 }
 
 void MouseCursorGoto(Display *dsp, Window w, int x, int y)
