@@ -18,6 +18,7 @@
 #include <thread>
 
 #define MASK_THRESH 40          // Experimentalmente o melhor valor
+#define OBJECT_MIN_AREA 10000.0 // Experimentalmente um valor bom
 
 using namespace cv;
 using namespace std;
@@ -78,7 +79,7 @@ int main() {
 
         for (size_t i = 0; i < contours.size(); i++) {
             double area = contourArea(contours[i]);
-            if (area > 10000.0) {
+            if (area > OBJECT_MIN_AREA) {
                 Moments m = moments(contours[i]);
                 int puffle_x = m.m10 / m.m00;
                 int puffle_y = m.m01 / m.m00;
