@@ -59,7 +59,7 @@ int main() {
     int fps = 60;
 
     // Obs: essa imagem tem dimensões exatas de 1503x750
-    Mat background = imread("images/fundo.png", IMREAD_GRAYSCALE);
+    Mat background = imread("images/background.png", IMREAD_GRAYSCALE);
     if (background.empty()) return -1;
 
     // Setup do x11 para capturar video
