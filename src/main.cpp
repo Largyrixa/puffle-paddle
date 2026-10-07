@@ -22,16 +22,6 @@
 using namespace cv;
 using namespace std;
 
-class Puffle {
-public:
-    Point pos;
-    Scalar color;
-
-    Puffle(): pos{0, 0}, color{0, 0, 0} {}
-    Puffle(int _x, int _y): pos{_x, _y}, color{0,0,0} {}
-    Puffle(Point _pos, Scalar _color): pos{_pos}, color{_color} {}
-};
-
 class ScreenCapture {
 public:
     Display *display;
